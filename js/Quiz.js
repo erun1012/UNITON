@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, addDoc, getDocs, query, where, doc, getDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from './firebase-config.js';
 
 // 파일을 base64로 변환 (Storage 완전 우회)
@@ -94,5 +94,103 @@ export async function getAllQuizzes(userId) {
   } catch (error) {
     console.error('❌ 퀴즈 불러오기 실패:', error);
     return [];
+  }
+}
+
+// 특정 ID의 퀴즈 하나만 가져오기
+export async function getQuizById(userId, quizId) {
+    try {
+    // 1. userId로 유저 문서 찾기
+    const q = query(collection(db, 'users'), where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      console.error(`❌ 사용자 ${userId}를 찾을 수 없습니다.`);
+      return null;
+    }
+
+    const userDoc = snapshot.docs[0];
+
+    // 2. 해당 유저의 quizzes 하위 컬렉션 모두 가져오기
+    const quizzesSnap = await getDocs(collection(db, 'users', userDoc.id, 'quizzes'));
+    const quizzes = quizzesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (quizzes.length === 0) {
+      console.warn('⚠️ 퀴즈가 없습니다.');
+      return null;
+    }
+
+    // 3. 랜덤 인덱스 생성 후 퀴즈 반환
+    const randomIndex = Math.floor(Math.random() * quizzes.length);
+    const randomQuiz = quizzes[randomIndex];
+
+    console.log(`🎲 랜덤 퀴즈 반환:`, randomQuiz);
+    return randomQuiz;
+
+  } catch (error) {
+    console.error('❌ 랜덤 퀴즈 조회 실패:', error);
+    return null;
+  }
+}
+
+// 퀴즈 삭제
+export async function deleteQuiz(userId, quizId) {
+  try {
+    // 1. userId로 유저 문서 찾기
+    const q = query(collection(db, 'users'), where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      console.error(`❌ 사용자 ${userId}를 찾을 수 없습니다.`);
+      return false;
+    }
+
+    const userDoc = snapshot.docs[0];
+
+    // 2. 퀴즈 문서 삭제
+    await deleteDoc(doc(db, 'users', userDoc.id, 'quizzes', quizId));
+    
+    console.log(`🗑️ 퀴즈 ${quizId} 삭제 성공`);
+    return true;
+  } catch (error) {
+    console.error('❌ 퀴즈 삭제 실패:', error);
+    return false;
+  }
+}
+
+// 퀴즈 수정
+export async function editQuiz(userId, quizId, updatedData) {
+  try {
+    // 1. userId로 유저 문서 찾기
+    const q = query(collection(db, 'users'), where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      console.error(`❌ 사용자 ${userId}를 찾을 수 없습니다.`);
+      return false;
+    }
+
+    const userDoc = snapshot.docs[0];
+
+    // 2. 업데이트할 데이터 준비
+    const updateFields = { ...updatedData };
+    
+    // 만약 새로운 이미지 파일이 있다면 압축 처리
+    if (updatedData.사진 && updatedData.사진 instanceof File) {
+      console.log('🔄 새 이미지 압축 중...');
+      updateFields.사진 = await compressImage(updatedData.사진);
+    }
+    
+    // 수정 시간 추가
+    updateFields.updatedAt = new Date();
+
+    // 3. 퀴즈 문서 업데이트
+    await updateDoc(doc(db, 'users', userDoc.id, 'quizzes', quizId), updateFields);
+    
+    console.log(`✏️ 퀴즈 ${quizId} 수정 성공`);
+    return true;
+  } catch (error) {
+    console.error('❌ 퀴즈 수정 실패:', error);
+    return false;
   }
 }

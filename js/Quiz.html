@@ -2,26 +2,135 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>퀴즈 등록 (Base64 Firestore 저장)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>퀴즈 관리 시스템</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      max-width: 800px; 
+      margin: 20px auto; 
+      padding: 0 20px;
+    }
+    
+    .section { 
+      margin: 30px 0; 
+      padding: 20px; 
+      border: 1px solid #ddd; 
+      border-radius: 8px; 
+    }
+    
+    label { 
+      display: block; 
+      margin: 10px 0 5px 0; 
+      font-weight: bold;
+    }
+    
+    input, button { 
+      display: block; 
+      margin: 10px 0; 
+      padding: 8px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    button:hover { background: #0056b3; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    
+    .quiz-img { 
+      max-width: 200px; 
+      margin: 10px 0; 
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .quiz-item { 
+      border-bottom: 1px solid #eee; 
+      padding: 15px 0; 
+      margin: 10px 0;
+    }
+    
+    .quiz-actions {
+      margin: 10px 0;
+    }
+    
+    .quiz-actions button {
+      display: inline-block;
+      width: auto;
+      margin: 5px 10px 5px 0;
+      padding: 5px 15px;
+    }
+    
+    .btn-delete { background: #dc3545; }
+    .btn-delete:hover { background: #c82333; }
+    
+    .btn-edit { background: #28a745; }
+    .btn-edit:hover { background: #218838; }
+    
+    .edit-area {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+    
+    .edit-area input {
+      margin: 5px 0;
+    }
+    
+    .random-quiz {
+      background: #e3f2fd;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-  <h1>퀴즈 등록</h1>
-  <label for="userId">사용자 ID</label>
-  <input id="userId" type="text" placeholder="사용자 ID 입력" />
+  <h1>퀴즈 관리 시스템</h1>
 
-  <label for="quizImage">사진</label>
-  <input id="quizImage" type="file" accept="image/*" />
+  <!-- 사용자 ID 입력 -->
+  <div class="section">
+    <label for="userId">사용자 ID</label>
+    <input type="text" id="userId" placeholder="사용자 ID를 입력하세요" />
+  </div>
 
-  <label for="quizAnswer">정답</label>
-  <input id="quizAnswer" type="text" placeholder="퀴즈 정답 입력" />
+  <!-- 퀴즈 추가 섹션 -->
+  <div class="section">
+    <h2>새 퀴즈 추가</h2>
+    <label for="quizImage">퀴즈 사진</label>
+    <input type="file" id="quizImage" accept="image/*" />
+    
+    <label for="quizAnswer">퀴즈 정답</label>
+    <input type="text" id="quizAnswer" placeholder="정답을 입력하세요" />
+    
+    <button id="btnAddQuiz">퀴즈 추가</button>
+  </div>
 
-  <button id="btnAddQuiz">퀴즈 추가</button>
-  <button id="btnLoadQuizzes">퀴즈 목록 불러오기</button>
+  <!-- 퀴즈 목록 섹션 -->
+  <div class="section">
+    <h2>저장된 퀴즈 목록</h2>
+    <button id="btnLoadQuizzes">퀴즈 목록 불러오기</button>
+    <div id="quizList"></div>
+  </div>
 
-  <div id="quizList"></div>
+  <!-- 랜덤 퀴즈 섹션 -->
+  <div class="section">
+    <h2>랜덤 퀴즈</h2>
+    <button id="btnGetRandomQuiz">랜덤 퀴즈 불러오기</button>
+    <div id="randomQuizDisplay" class="random-quiz"></div>
+  </div>
 
   <script type="module">
-    import { addQuiz, getAllQuizzes } from './Quiz.js'; // 네 js 파일 이름으로 변경
+    import { addQuiz, getAllQuizzes, deleteQuiz, editQuiz, getQuizById as fetchRandomQuiz } from './Quiz.js';
 
     const userIdInput = document.getElementById('userId');
     const quizImageInput = document.getElementById('quizImage');
@@ -29,22 +138,32 @@
     const btnAddQuiz = document.getElementById('btnAddQuiz');
     const btnLoadQuizzes = document.getElementById('btnLoadQuizzes');
     const quizListDiv = document.getElementById('quizList');
+    const btnGetRandomQuiz = document.getElementById('btnGetRandomQuiz');
+    const randomQuizDisplay = document.getElementById('randomQuizDisplay');
+
+    // DOM 요소 존재 확인
+    if (!btnAddQuiz) {
+      console.error('❌ btnAddQuiz 요소를 찾을 수 없습니다.');
+    }
 
     btnAddQuiz.addEventListener('click', async () => {
       const userId = userIdInput.value.trim();
       const file = quizImageInput.files[0];
       const answer = quizAnswerInput.value.trim();
 
-      if (!userId) return alert('사용자 ID 입력하세요');
-      if (!file) return alert('사진 선택하세요');
-      if (!answer) return alert('정답 입력하세요');
+      if (!userId) return alert('사용자 ID를 입력하세요.');
+      if (!file) return alert('퀴즈 사진을 선택하세요.');
+      if (!answer) return alert('퀴즈 정답을 입력하세요.');
 
       btnAddQuiz.disabled = true;
       btnAddQuiz.textContent = '추가 중...';
 
       try {
         await addQuiz(userId, { 사진: file, 정답: answer });
-        alert('퀴즈 추가 완료');
+        alert('퀴즈가 추가되었습니다.');
+        quizImageInput.value = '';
+        quizAnswerInput.value = '';
+        loadQuizzes(); // 추가 후 목록 갱신
       } catch (e) {
         alert('퀴즈 추가 실패');
         console.error(e);
@@ -54,9 +173,12 @@
       }
     });
 
-    btnLoadQuizzes.addEventListener('click', async () => {
+    btnLoadQuizzes.addEventListener('click', loadQuizzes);
+    btnGetRandomQuiz.addEventListener('click', loadRandomQuiz);
+
+    async function loadQuizzes() {
       const userId = userIdInput.value.trim();
-      if (!userId) return alert('사용자 ID 입력하세요');
+      if (!userId) return alert('사용자 ID를 입력하세요.');
 
       btnLoadQuizzes.disabled = true;
       btnLoadQuizzes.textContent = '불러오는 중...';
@@ -66,20 +188,89 @@
         quizListDiv.innerHTML = '';
 
         if (!quizzes.length) {
-          quizListDiv.textContent = '퀴즈가 없습니다.';
+          quizListDiv.innerHTML = '<p>퀴즈가 없습니다.</p>';
           return;
         }
 
-        quizzes.forEach(q => {
+        quizzes.forEach(quiz => {
           const div = document.createElement('div');
-          div.style.borderBottom = '1px solid #ccc';
-          div.style.marginBottom = '10px';
+          div.classList.add('quiz-item');
+
           div.innerHTML = `
-            <img src="${q.사진}" alt="퀴즈 이미지" style="max-width:150px; display:block; margin-bottom:5px;" />
-            <p>정답: ${q.정답}</p>
-            <small>등록일: ${q.createdAt?.toDate ? q.createdAt.toDate().toLocaleString() : new Date(q.createdAt.seconds * 1000).toLocaleString()}</small>
+            <img class="quiz-img" src="${quiz.사진}" alt="퀴즈 이미지" />
+            <p><strong>정답:</strong> <span class="answer-text">${quiz.정답}</span></p>
+            <small>등록일: ${quiz.createdAt?.toDate ? quiz.createdAt.toDate().toLocaleString() : new Date(quiz.createdAt.seconds * 1000).toLocaleString()}</small>
+            <div class="quiz-actions">
+              <button class="btn-delete" data-id="${quiz.id}">삭제</button>
+              <button class="btn-edit" data-id="${quiz.id}">수정</button>
+            </div>
+            <div class="edit-area" style="display:none;">
+              <label>새 사진 (선택사항)</label>
+              <input type="file" class="edit-photo" accept="image/*" />
+              <label>새 정답</label>
+              <input type="text" class="edit-answer" value="${quiz.정답}" />
+              <button class="btn-save-edit" data-id="${quiz.id}">저장</button>
+              <button class="btn-cancel-edit">취소</button>
+            </div>
           `;
+
           quizListDiv.appendChild(div);
+
+          // 이벤트 리스너 추가
+          const btnDelete = div.querySelector('.btn-delete');
+          const btnEdit = div.querySelector('.btn-edit');
+          const btnSaveEdit = div.querySelector('.btn-save-edit');
+          const btnCancelEdit = div.querySelector('.btn-cancel-edit');
+          const editArea = div.querySelector('.edit-area');
+
+          btnDelete.addEventListener('click', async () => {
+            if (!confirm('정말 삭제하시겠습니까?')) return;
+            const quizId = btnDelete.dataset.id;
+            const success = await deleteQuiz(userId, quizId);
+            if (success) {
+              alert('삭제되었습니다.');
+              loadQuizzes();
+            } else {
+              alert('삭제 실패');
+            }
+          });
+
+          btnEdit.addEventListener('click', () => {
+            editArea.style.display = 'block';
+          });
+
+          btnCancelEdit.addEventListener('click', () => {
+            editArea.style.display = 'none';
+          });
+
+          btnSaveEdit.addEventListener('click', async () => {
+            const quizId = btnSaveEdit.dataset.id;
+            const newPhotoInput = editArea.querySelector('.edit-photo');
+            const newAnswerInput = editArea.querySelector('.edit-answer');
+
+            const updatedData = {};
+            if (newPhotoInput.files.length > 0) {
+              updatedData.사진 = newPhotoInput.files[0];
+            }
+            if (newAnswerInput.value.trim()) {
+              updatedData.정답 = newAnswerInput.value.trim();
+            }
+
+            btnSaveEdit.disabled = true;
+            btnSaveEdit.textContent = '저장 중...';
+
+            const success = await editQuiz(userId, quizId, updatedData);
+            if (success) {
+              alert('수정되었습니다.');
+              editArea.style.display = 'none';
+              loadQuizzes();
+            } else {
+              alert('수정 실패');
+            }
+
+            btnSaveEdit.disabled = false;
+            btnSaveEdit.textContent = '저장';
+          });
         });
       } catch (e) {
         alert('퀴즈 불러오기 실패');
@@ -88,7 +279,36 @@
         btnLoadQuizzes.disabled = false;
         btnLoadQuizzes.textContent = '퀴즈 목록 불러오기';
       }
-    });
+    }
+
+    async function loadRandomQuiz() {
+      const userId = userIdInput.value.trim();
+      if (!userId) return alert('사용자 ID를 입력하세요.');
+
+      btnGetRandomQuiz.disabled = true;
+      btnGetRandomQuiz.textContent = '불러오는 중...';
+
+      try {
+        const quiz = await fetchRandomQuiz(userId);
+        if (!quiz) {
+          randomQuizDisplay.innerHTML = '<p>퀴즈가 없습니다.</p>';
+          return;
+        }
+
+        randomQuizDisplay.innerHTML = `
+          <img class="quiz-img" src="${quiz.사진}" alt="랜덤 퀴즈 이미지" />
+          <p><strong>정답:</strong> ${quiz.정답}</p>
+          <small>등록일: ${quiz.createdAt?.toDate ? quiz.createdAt.toDate().toLocaleString() : new Date(quiz.createdAt.seconds * 1000).toLocaleString()}</small>
+        `;
+      } catch (e) {
+        alert('랜덤 퀴즈 불러오기 실패');
+        console.error(e);
+        randomQuizDisplay.innerHTML = '<p>오류가 발생했습니다.</p>';
+      } finally {
+        btnGetRandomQuiz.disabled = false;
+        btnGetRandomQuiz.textContent = '랜덤 퀴즈 불러오기';
+      }
+    }
   </script>
 </body>
 </html>
