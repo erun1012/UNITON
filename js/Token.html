@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>푸시 토큰 저장 및 조회 테스트</title>
+  <style>
+    body { max-width: 480px; margin: 30px auto; font-family: Arial, sans-serif; }
+    label, button { display: block; margin-top: 15px; }
+    input[type="text"] { width: 100%; padding: 8px; margin-top: 5px; }
+    button { padding: 10px 15px; cursor: pointer; }
+    #output { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+
+  <h1>푸시 토큰 저장 및 활성 토큰 조회</h1>
+
+  <label>
+    사용자 ID
+    <input type="text" id="inputUserId" placeholder="userId 입력" />
+  </label>
+
+  <label>
+    토큰 (푸시 토큰)
+    <input type="text" id="inputToken" placeholder="token 입력" />
+  </label>
+
+  <label>
+    플랫폼 (android, ios, web 등)
+    <input type="text" id="inputPlatform" placeholder="platform 입력" />
+  </label>
+
+  <button id="btnSaveToken">토큰 저장 (upsertDeviceToken)</button>
+  <button id="btnLoadTokens">활성 토큰 조회 (getActiveTokensByUserId)</button>
+
+  <div id="output">결과가 여기에 표시됩니다.</div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, doc, setDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // Firebase 설정 - 본인 프로젝트에 맞게 수정하세요!
+    const firebaseConfig = {
+      apiKey: "AIzaSyAJqmOSqV82lSSVukgLxUV2pb9qBNuG3f8",
+      authDomain: "alz.firebaseapp.com",
+      projectId: "alz-zip",
+      storageBucket: "alz-zip.appspot.com",
+      messagingSenderId: "999217669427",
+      appId: "1:999217669427:web:2b5ccaf729d403391e0a46"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    async function upsertDeviceToken({ userId, token, platform }) {
+      if (!userId || !token) throw new Error("userId와 token은 필수입니다.");
+
+      const tokenDocRef = doc(db, "users", userId, "tokens", token);
+
+      const tokenData = {
+        token,
+        platform,
+        active: true,
+        updatedAt: new Date(),
+      };
+
+      try {
+        await setDoc(tokenDocRef, tokenData, { merge: true });
+        return true;
+      } catch (error) {
+        console.error("토큰 저장 오류:", error);
+        return false;
+      }
+    }
+
+    async function getActiveTokensByUserId(userId) {
+      if (!userId) throw new Error("userId는 필수입니다.");
+
+      const tokensColRef = collection(db, "users", userId, "tokens");
+      const activeTokensQuery = query(tokensColRef, where("active", "==", true));
+
+      try {
+        const querySnapshot = await getDocs(activeTokensQuery);
+        const tokens = [];
+        querySnapshot.forEach(doc => {
+          tokens.push(doc.data().token);
+        });
+        return tokens;
+      } catch (error) {
+        console.error("활성 토큰 조회 오류:", error);
+        return [];
+      }
+    }
+
+    // DOM 요소
+    const inputUserId = document.getElementById('inputUserId');
+    const inputToken = document.getElementById('inputToken');
+    const inputPlatform = document.getElementById('inputPlatform');
+    const btnSaveToken = document.getElementById('btnSaveToken');
+    const btnLoadTokens = document.getElementById('btnLoadTokens');
+    const output = document.getElementById('output');
+
+    btnSaveToken.addEventListener('click', async () => {
+      const userId = inputUserId.value.trim();
+      const token = inputToken.value.trim();
+      const platform = inputPlatform.value.trim();
+
+      if (!userId || !token) {
+        alert("userId와 token은 필수 입력입니다.");
+        return;
+      }
+
+      btnSaveToken.disabled = true;
+      btnSaveToken.textContent = "저장 중...";
+
+      const result = await upsertDeviceToken({ userId, token, platform });
+      output.textContent = result ? "토큰 저장 성공!" : "토큰 저장 실패!";
+
+      btnSaveToken.disabled = false;
+      btnSaveToken.textContent = "토큰 저장 (upsertDeviceToken)";
+    });
+
+    btnLoadTokens.addEventListener('click', async () => {
+      const userId = inputUserId.value.trim();
+      if (!userId) {
+        alert("userId를 입력하세요.");
+        return;
+      }
+
+      btnLoadTokens.disabled = true;
+      btnLoadTokens.textContent = "조회 중...";
+
+      const tokens = await getActiveTokensByUserId(userId);
+      if (tokens.length === 0) {
+        output.textContent = "활성화된 토큰이 없습니다.";
+      } else {
+        output.textContent = `활성화된 토큰들:\n${tokens.join("\n")}`;
+      }
+
+      btnLoadTokens.disabled = false;
+      btnLoadTokens.textContent = "활성 토큰 조회 (getActiveTokensByUserId)";
+    });
+  </script>
+</body>
+</html>

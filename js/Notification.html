@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>알림 관리</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; max-width: 600px; }
+    label { display: block; margin-top: 10px; }
+    input, textarea, button, select { width: 100%; padding: 8px; margin-top: 5px; }
+    button { cursor: pointer; }
+    .notification-item { border: 1px solid #ddd; padding: 10px; margin: 10px 0; }
+    .notification-item:hover { background: #f9f9f9; }
+    .actions button { width: auto; margin-right: 5px; }
+  </style>
+</head>
+<body>
+  <h1>알림 관리</h1>
+
+  <label for="userIdInput">사용자 ID</label>
+  <input type="text" id="userIdInput" placeholder="사용자 ID 입력" />
+
+  <hr />
+
+  <h2>새 알림 생성</h2>
+  <label for="notifTitle">제목</label>
+  <input type="text" id="notifTitle" placeholder="제목 입력" />
+
+  <label for="notifContent">내용</label>
+  <textarea id="notifContent" placeholder="내용 입력"></textarea>
+
+  <button id="createNotifBtn">알림 생성</button>
+
+  <hr />
+
+  <h2>알림 조회</h2>
+  <label for="notifIdInput">알림 ID (notificationId)</label>
+  <input type="text" id="notifIdInput" placeholder="알림 ID 입력" />
+  <button id="getNotifBtn">알림 조회</button>
+
+  <pre id="notifResult" style="background:#eee; padding:10px; white-space: pre-wrap;"></pre>
+
+  <hr />
+
+  <h2>사용자 알림 목록</h2>
+  <button id="getAllNotifsBtn">알림 목록 가져오기</button>
+  <div id="notifList"></div>
+
+  <script type="module">
+    import {
+      createNotification,
+      getNotification,
+      getNotifications,
+      updateNotification,
+      deleteNotification
+    } from './Notification.js';
+
+    const userIdInput = document.getElementById('userIdInput');
+    const notifTitle = document.getElementById('notifTitle');
+    const notifContent = document.getElementById('notifContent');
+    const createNotifBtn = document.getElementById('createNotifBtn');
+
+    const notifIdInput = document.getElementById('notifIdInput');
+    const getNotifBtn = document.getElementById('getNotifBtn');
+    const notifResult = document.getElementById('notifResult');
+
+    const getAllNotifsBtn = document.getElementById('getAllNotifsBtn');
+    const notifList = document.getElementById('notifList');
+
+    // 알림 생성
+    createNotifBtn.addEventListener('click', async () => {
+      const userId = userIdInput.value.trim();
+      if (!userId) return alert('사용자 ID를 입력하세요.');
+      const title = notifTitle.value.trim();
+      const content = notifContent.value.trim();
+
+      try {
+        const newNotif = await createNotification(userId, { title, content });
+        alert('알림 생성 성공! 알림 ID: ' + newNotif.id);
+        notifTitle.value = '';
+        notifContent.value = '';
+      } catch (e) {
+        alert('알림 생성 실패: ' + e.message);
+      }
+    });
+
+    // 특정 알림 조회
+    getNotifBtn.addEventListener('click', async () => {
+      const userId = userIdInput.value.trim();
+      const notificationId = notifIdInput.value.trim();
+      if (!userId || !notificationId) return alert('사용자 ID와 알림 ID를 입력하세요.');
+
+      const notif = await getNotification(userId, notificationId);
+      if (notif) {
+        notifResult.textContent = JSON.stringify(notif, null, 2);
+      } else {
+        notifResult.textContent = '알림을 찾을 수 없습니다.';
+      }
+    });
+
+    // 사용자 알림 목록 불러오기 및 표시
+    getAllNotifsBtn.addEventListener('click', async () => {
+      const userId = userIdInput.value.trim();
+      if (!userId) return alert('사용자 ID를 입력하세요.');
+
+      notifList.innerHTML = '불러오는 중...';
+      const notifs = await getNotifications(userId);
+      if (notifs.length === 0) {
+        notifList.innerHTML = '알림이 없습니다.';
+        return;
+      }
+
+      notifList.innerHTML = '';
+      notifs.forEach(notif => {
+        const div = document.createElement('div');
+        div.className = 'notification-item';
+        div.innerHTML = `
+          <strong>제목:</strong> ${notif.title} <br />
+          <strong>내용:</strong> ${notif.content} <br />
+          <strong>알림ID:</strong> ${notif.notificationId} <br />
+          <strong>생성일:</strong> ${new Date(notif.createAt?.seconds * 1000 || notif.createAt).toLocaleString()} <br />
+          <div class="actions">
+            <button class="editBtn">수정</button>
+            <button class="deleteBtn">삭제</button>
+          </div>
+        `;
+
+        // 수정 버튼 이벤트
+        div.querySelector('.editBtn').addEventListener('click', async () => {
+          const newTitle = prompt('새 제목을 입력하세요', notif.title);
+          if (newTitle === null) return;
+          const newContent = prompt('새 내용을 입력하세요', notif.content);
+          if (newContent === null) return;
+
+          const success = await updateNotification(userId, notif.notificationId, {
+            title: newTitle,
+            content: newContent
+          });
+
+          if (success) {
+            alert('수정 성공');
+            div.querySelector('strong:nth-child(1)').nextSibling.textContent = ' ' + newTitle;
+            div.querySelector('strong:nth-child(2)').nextSibling.textContent = ' ' + newContent;
+          } else {
+            alert('수정 실패');
+          }
+        });
+
+        // 삭제 버튼 이벤트
+        div.querySelector('.deleteBtn').addEventListener('click', async () => {
+          if (!confirm('정말 삭제하시겠습니까?')) return;
+
+          const success = await deleteNotification(userId, notif.notificationId);
+          if (success) {
+            alert('삭제 성공');
+            div.remove();
+          } else {
+            alert('삭제 실패');
+          }
+        });
+
+        notifList.appendChild(div);
+      });
+    });
+  </script>
+</body>
+</html>
