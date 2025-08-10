@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Firebase Test</title>
+</head>
+<body>
+  <h1>Firebase Firestore 테스트</h1>
+  <button id="addUserBtn">사용자 추가</button>
+  <button id="loginBtn">로그인</button>
+
+  <script type="module">
+    import { addUser, loginUser } from './User.js';
+
+    document.getElementById('addUserBtn').addEventListener('click', async () => {
+      await addUser({ userId: 'testuser', userPw: '1234' });
+    });
+
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const result = await loginUser('testuser', '1234');
+      console.log('로그인 결과:', result);
+    });
+  </script>
+</body>
+</html>
