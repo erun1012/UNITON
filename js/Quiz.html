@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>퀴즈 등록 (Base64 Firestore 저장)</title>
+</head>
+<body>
+  <h1>퀴즈 등록</h1>
+  <label for="userId">사용자 ID</label>
+  <input id="userId" type="text" placeholder="사용자 ID 입력" />
+
+  <label for="quizImage">사진</label>
+  <input id="quizImage" type="file" accept="image/*" />
+
+  <label for="quizAnswer">정답</label>
+  <input id="quizAnswer" type="text" placeholder="퀴즈 정답 입력" />
+
+  <button id="btnAddQuiz">퀴즈 추가</button>
+  <button id="btnLoadQuizzes">퀴즈 목록 불러오기</button>
+
+  <div id="quizList"></div>
+
+  <script type="module">
+    import { addQuiz, getAllQuizzes } from './Quiz.js'; // 네 js 파일 이름으로 변경
+
+    const userIdInput = document.getElementById('userId');
+    const quizImageInput = document.getElementById('quizImage');
+    const quizAnswerInput = document.getElementById('quizAnswer');
+    const btnAddQuiz = document.getElementById('btnAddQuiz');
+    const btnLoadQuizzes = document.getElementById('btnLoadQuizzes');
+    const quizListDiv = document.getElementById('quizList');
+
+    btnAddQuiz.addEventListener('click', async () => {
+      const userId = userIdInput.value.trim();
+      const file = quizImageInput.files[0];
+      const answer = quizAnswerInput.value.trim();
+
+      if (!userId) return alert('사용자 ID 입력하세요');
+      if (!file) return alert('사진 선택하세요');
+      if (!answer) return alert('정답 입력하세요');
+
+      btnAddQuiz.disabled = true;
+      btnAddQuiz.textContent = '추가 중...';
+
+      try {
+        await addQuiz(userId, { 사진: file, 정답: answer });
+        alert('퀴즈 추가 완료');
+      } catch (e) {
+        alert('퀴즈 추가 실패');
+        console.error(e);
+      } finally {
+        btnAddQuiz.disabled = false;
+        btnAddQuiz.textContent = '퀴즈 추가';
+      }
+    });
+
+    btnLoadQuizzes.addEventListener('click', async () => {
+      const userId = userIdInput.value.trim();
+      if (!userId) return alert('사용자 ID 입력하세요');
+
+      btnLoadQuizzes.disabled = true;
+      btnLoadQuizzes.textContent = '불러오는 중...';
+
+      try {
+        const quizzes = await getAllQuizzes(userId);
+        quizListDiv.innerHTML = '';
+
+        if (!quizzes.length) {
+          quizListDiv.textContent = '퀴즈가 없습니다.';
+          return;
+        }
+
+        quizzes.forEach(q => {
+          const div = document.createElement('div');
+          div.style.borderBottom = '1px solid #ccc';
+          div.style.marginBottom = '10px';
+          div.innerHTML = `
+            <img src="${q.사진}" alt="퀴즈 이미지" style="max-width:150px; display:block; margin-bottom:5px;" />
+            <p>정답: ${q.정답}</p>
+            <small>등록일: ${q.createdAt?.toDate ? q.createdAt.toDate().toLocaleString() : new Date(q.createdAt.seconds * 1000).toLocaleString()}</small>
+          `;
+          quizListDiv.appendChild(div);
+        });
+      } catch (e) {
+        alert('퀴즈 불러오기 실패');
+        console.error(e);
+      } finally {
+        btnLoadQuizzes.disabled = false;
+        btnLoadQuizzes.textContent = '퀴즈 목록 불러오기';
+      }
+    });
+  </script>
+</body>
+</html>
