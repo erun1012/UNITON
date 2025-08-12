@@ -12,20 +12,29 @@
   <script type="module">
     import { addUser, loginUser } from './User.js';
 
+    // 사용자 추가 버튼
     document.getElementById('addUserBtn').addEventListener('click', async () => {
       try {
-        await addUser({ userId: 'testuser22', userPw: '123422' });
+        // User.js에서 요구하는 필드에 맞게 값 전달
+        await addUser({
+          name: 'testuser11',         // 사용자 아이디
+          email: 'testuser22@test.com',
+          password: '123422',
+          role: '이용자',
+          phone: '010-1234-5678'
+        });
         alert('사용자 추가 성공!');
       } catch (e) {
         alert('사용자 추가 실패: ' + e.message);
       }
     });
 
+    // 로그인 버튼
     document.getElementById('loginBtn').addEventListener('click', async () => {
       try {
-        const result = await loginUser('testuser22', '123422');
+        const result = await loginUser('testuser11', '123422');
         console.log('로그인 결과:', result);
-        if (result) {
+        if (result && result.length > 0) {
           alert('로그인 성공!');
         } else {
           alert('로그인 실패!');

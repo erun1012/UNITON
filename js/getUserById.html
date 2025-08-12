@@ -6,35 +6,35 @@
 </head>
 <body>
   <h1>사용자 검색</h1>
-  <input type="text" id="userIdInput" placeholder="검색할 아이디 입력" />
+  <input type="text" id="nameInput" placeholder="검색할 아이디(name) 입력" />
   <button id="searchBtn">검색</button>
   <pre id="result"></pre>
 
   <script type="module">
     import { getUserById } from './User.js';
 
-    const input = document.getElementById('userIdInput');
-    const btn = document.getElementById('searchBtn');
-    const result = document.getElementById('result');
+    const nameInput = document.getElementById('nameInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const resultArea = document.getElementById('result');
 
-    btn.addEventListener('click', async () => {
-      const userId = input.value.trim();
-      if (!userId) {
-        alert('아이디를 입력하세요');
+    searchBtn.addEventListener('click', async () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        alert('아이디(name)를 입력하세요');
         return;
       }
 
-      result.textContent = '검색 중...';
+      resultArea.textContent = '검색 중...';
 
       try {
-        const user = await getUserById(userId);
+        const user = await getUserById(name);
         if (user) {
-          result.textContent = JSON.stringify(user, null, 2);
+          resultArea.textContent = JSON.stringify(user, null, 2);
         } else {
-          result.textContent = '사용자를 찾을 수 없습니다.';
+          resultArea.textContent = '❌ 사용자를 찾을 수 없습니다.';
         }
       } catch (e) {
-        result.textContent = '오류 발생: ' + e.message;
+        resultArea.textContent = '⚠ 오류 발생: ' + e.message;
       }
     });
   </script>

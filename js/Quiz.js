@@ -38,8 +38,8 @@ function compressImage(file, maxWidth = 800, quality = 0.8) {
 
 export async function addQuiz(userId, quiz) {
   try {
-    // 1. userId로 해당 유저 문서 찾기
-    const q = query(collection(db, 'users'), where('userId', '==', userId));
+    // 1. userId로 해당 유저 문서 찾기 (name 필드로 검색)
+    const q = query(collection(db, 'users'), where('name', '==', userId));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
@@ -51,18 +51,21 @@ export async function addQuiz(userId, quiz) {
 
     // 2. 이미지 압축 및 base64 변환
     console.log('🔄 이미지 압축 중...');
-    const compressedImage = await compressImage(quiz.사진);
+    const compressedImage = await compressImage(quiz.imgFile);
     
     // 3. Firestore에 직접 저장 (Storage 사용 안 함)
     console.log('🔄 Firestore에 저장 중...');
-    await addDoc(collection(db, 'users', userDoc.id, 'quizzes'), {
-      사진: compressedImage, // base64 문자열
-      정답: quiz.정답,
+    const docRef = await addDoc(collection(db, 'users', userDoc.id, 'quizzes'), {
+      userId: quiz.userId,       // 어떤 사용자의 퀴즈인지
+      quizzId: quiz.quizzId,     // 퀴즈의 고유 ID
+      imgFile: compressedImage,  // base64 문자열로 변환된 이미지
+      answer: quiz.answer,       // 퀴즈 정답
       createdAt: new Date(),
       저장방식: 'firestore-base64' // 디버깅용
     });
 
     console.log(`✅ 사용자 ${userId}에 퀴즈 저장 성공 (Firestore 방식)`);
+    return docRef.id; // 생성된 문서 ID 반환
   } catch (error) {
     console.error('❌ 퀴즈 저장 실패:', error);
     throw error;
@@ -71,8 +74,8 @@ export async function addQuiz(userId, quiz) {
 
 export async function getAllQuizzes(userId) {
   try {
-    // 1. userId로 유저 문서 찾기
-    const q = query(collection(db, 'users'), where('userId', '==', userId));
+    // 1. userId로 유저 문서 찾기 (name 필드로 검색)
+    const q = query(collection(db, 'users'), where('name', '==', userId));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
@@ -97,11 +100,11 @@ export async function getAllQuizzes(userId) {
   }
 }
 
-// 특정 ID의 퀴즈 하나만 가져오기
+// 특정 ID의 퀴즈 하나만 가져오기 (랜덤)
 export async function getQuizById(userId, quizId) {
     try {
-    // 1. userId로 유저 문서 찾기
-    const q = query(collection(db, 'users'), where('userId', '==', userId));
+    // 1. userId로 유저 문서 찾기 (name 필드로 검색)
+    const q = query(collection(db, 'users'), where('name', '==', userId));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
@@ -136,8 +139,8 @@ export async function getQuizById(userId, quizId) {
 // 퀴즈 삭제
 export async function deleteQuiz(userId, quizId) {
   try {
-    // 1. userId로 유저 문서 찾기
-    const q = query(collection(db, 'users'), where('userId', '==', userId));
+    // 1. userId로 유저 문서 찾기 (name 필드로 검색)
+    const q = query(collection(db, 'users'), where('name', '==', userId));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
@@ -161,8 +164,8 @@ export async function deleteQuiz(userId, quizId) {
 // 퀴즈 수정
 export async function editQuiz(userId, quizId, updatedData) {
   try {
-    // 1. userId로 유저 문서 찾기
-    const q = query(collection(db, 'users'), where('userId', '==', userId));
+    // 1. userId로 유저 문서 찾기 (name 필드로 검색)
+    const q = query(collection(db, 'users'), where('name', '==', userId));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
@@ -176,9 +179,9 @@ export async function editQuiz(userId, quizId, updatedData) {
     const updateFields = { ...updatedData };
     
     // 만약 새로운 이미지 파일이 있다면 압축 처리
-    if (updatedData.사진 && updatedData.사진 instanceof File) {
+    if (updatedData.imgFile && updatedData.imgFile instanceof File) {
       console.log('🔄 새 이미지 압축 중...');
-      updateFields.사진 = await compressImage(updatedData.사진);
+      updateFields.imgFile = await compressImage(updatedData.imgFile);
     }
     
     // 수정 시간 추가

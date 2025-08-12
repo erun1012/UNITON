@@ -22,47 +22,49 @@ import {
 
 // 새 사용자 추가
 export async function addUser(user) {
-  // 1. 중복 체크
-  const q = query(collection(db, 'users'), where('userId', '==', user.userId));
+  // 1. 중복 체크 (name 필드로 체크)
+  const q = query(collection(db, 'users'), where('name', '==', user.name));
   const snapshot = await getDocs(q);
 
   if (!snapshot.empty) {
-    console.log(`❌ 사용자 ${user.userId}는 이미 존재합니다.`);
+    console.log(`❌ 사용자 ${user.name}는 이미 존재합니다.`);
     throw new Error('이미 존재하는 아이디입니다.');
   }
 
   // 2. 중복 없으면 저장
   const userData = {
-    userId: user.userId,
-    userPw: user.userPw,
-    createdAt: serverTimestamp()
+    email: user.email,
+    password: user.password,
+    name: user.name,          // 사용자 아이디
+    role: user.role,          // 보호자 or 이용자
+    phone: user.phone,        // 전화번호
   };
 
   await addDoc(collection(db, 'users'), userData);
-  console.log(`✅ 사용자 ${user.userId} 등록 완료`);
+  console.log(`✅ 사용자 ${user.name} 등록 완료`);
 }
 
 // 로그인
-export async function loginUser(userId, userPw) {
+export async function loginUser(name, password) {
   const q = query(
     collection(db, 'users'),
-    where('userId', '==', userId),
-    where('userPw', '==', userPw)
+    where('name', '==', name),
+    where('password', '==', password)
   );
   const snapshot = await getDocs(q);
   if (snapshot.empty) {
     console.log('❌ 로그인 실패: 사용자를 찾을 수 없습니다.');
     return null;
   }
-  console.log(`✅ 사용자 ${userId} 로그인 성공`);
+  console.log(`✅ 사용자 ${name} 로그인 성공`);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
 
 
 /**
- * userId로 사용자 검색
- * @param {string} id - 회원가입 id (userId)
+ * name(사용자 아이디)으로 사용자 검색
+ * @param {string} id - 회원가입 id (name)
  * @returns {Promise<Object|null>} user 객체 또는 없으면 null 반환
  */
 
@@ -70,7 +72,7 @@ export async function loginUser(userId, userPw) {
 export async function getUserById(id) {
   const q = query(
     collection(db, 'users'),
-    where('userId', '==', id)
+    where('name', '==', id)
   );
 
   const snapshot = await getDocs(q);
@@ -79,7 +81,7 @@ export async function getUserById(id) {
     return null;
   }
   
-  // userId는 유니크하다고 가정하고 첫번째 문서만 반환
+  // name은 유니크하다고 가정하고 첫번째 문서만 반환
   const doc = snapshot.docs[0];
   return { id: doc.id, ...doc.data() };
 }
